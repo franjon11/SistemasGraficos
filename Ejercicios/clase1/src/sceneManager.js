@@ -2,6 +2,9 @@ import * as THREE from 'three';
 
 const diffToMerge = 0.01;
 
+// TODO = modificar con cosas q vimos
+// shininess - MeshPhongMaterial
+
 export class SceneManager {
 	scene;
 
