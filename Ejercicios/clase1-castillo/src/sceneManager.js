@@ -8,6 +8,15 @@ const diffToMerge = 0.01;
 export class SceneManager {
 	scene;
 
+	materials = {
+		grass: new THREE.MeshPhongMaterial({ color: 0x33ff633, name: 'foliage2' }),
+
+		paredCastillo: new THREE.MeshPhongMaterial({ color: 0xffe8c6, name: 'brick' }),
+		techoCono: new THREE.MeshPhongMaterial({ color: 0x5885ec, name: 'metal' }),
+
+		lago: new THREE.MeshPhongMaterial({ color: 0x61d2ff, name: 'water' }),
+	};
+
 	constructor(scene) {
 		this.scene = scene;
 
@@ -27,19 +36,14 @@ export class SceneManager {
 
 	createFloor() {
 		// plano completo verde
-		const pasto = new THREE.Mesh(
-			new THREE.PlaneGeometry(15, 15),
-			new THREE.MeshPhongMaterial({ color: '#2f8335' })
-		);
-		pasto.rotation.set(Math.PI * (3 / 2), 0, 0);
+		const pasto = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), this.materials['grass']);
+		pasto.rotation.set(-Math.PI / 2, 0, 0);
 		pasto.position.set(0, 0, -2);
 		this.scene.add(pasto);
 	}
 
 	createCastle() {
 		// edificio - rectangulo lleno
-		const colorEstructura = '#ffe8c6';
-		const colorTechoCono = '#5885ec';
 
 		const anchoEstructura = 3;
 		const altoEstructura = 1;
@@ -50,7 +54,7 @@ export class SceneManager {
 
 		const estructura = new THREE.Mesh(
 			new THREE.BoxGeometry(anchoEstructura, altoEstructura, anchoEstructura),
-			new THREE.MeshPhongMaterial({ color: colorEstructura })
+			this.materials['paredCastillo']
 		);
 		estructura.position.set(xEstructura, yEstructura + diffToMerge, zEstructura);
 		this.scene.add(estructura);
@@ -78,51 +82,37 @@ export class SceneManager {
 
 			const v1Base = new THREE.Mesh(
 				new THREE.CylinderGeometry(0.5, 0.5, v1AlturaBase, 10),
-				new THREE.MeshPhongMaterial({ color: colorEstructura })
+				this.materials['paredCastillo']
 			);
 			v1Base.position.set(vX, v1AlturaBase / 2, vZ);
 			this.scene.add(v1Base);
 
-			const v1Techo = new THREE.Mesh(
-				new THREE.ConeGeometry(0.8, v1AlturaTecho, 10),
-				new THREE.MeshPhongMaterial({ color: colorTechoCono })
-			);
+			const v1Techo = new THREE.Mesh(new THREE.ConeGeometry(0.8, v1AlturaTecho, 10), this.materials['techoCono']);
 			v1Techo.position.set(vX, v1AlturaBase + v1AlturaTecho / 2, vZ);
 			this.scene.add(v1Techo);
 
 			const v2Base = new THREE.Mesh(
 				new THREE.CylinderGeometry(0.5, 0.5, v1AlturaBase, 10),
-				new THREE.MeshPhongMaterial({ color: colorEstructura })
+				this.materials['paredCastillo']
 			);
 			v2Base.position.set(-vX, v1AlturaBase / 2, vZ);
 			this.scene.add(v2Base);
 
-			const v2Techo = new THREE.Mesh(
-				new THREE.ConeGeometry(0.8, v1AlturaTecho, 10),
-				new THREE.MeshPhongMaterial({ color: colorTechoCono })
-			);
+			const v2Techo = new THREE.Mesh(new THREE.ConeGeometry(0.8, v1AlturaTecho, 10), this.materials['techoCono']);
 			v2Techo.position.set(-vX, v1AlturaBase + v1AlturaTecho / 2, vZ);
 			this.scene.add(v2Techo);
 		}
 	}
 
 	createLake() {
-		const colorLago = '#61d2ff';
-
 		// sublago1 - circulo grande
-		const sublago1 = new THREE.Mesh(
-			new THREE.CircleGeometry(1, 25),
-			new THREE.MeshPhongMaterial({ color: colorLago })
-		);
+		const sublago1 = new THREE.Mesh(new THREE.CircleGeometry(1, 25), this.materials['lago']);
 		sublago1.rotation.set(Math.PI * (3 / 2), 0, 0);
 		sublago1.position.set(0, diffToMerge, 0.5);
 		this.scene.add(sublago1);
 
 		// sublago2 - circulo a penas mas chico
-		const sublago2 = new THREE.Mesh(
-			new THREE.CircleGeometry(0.9, 25),
-			new THREE.MeshPhongMaterial({ color: colorLago })
-		);
+		const sublago2 = new THREE.Mesh(new THREE.CircleGeometry(0.9, 25), this.materials['lago']);
 		sublago2.rotation.set(Math.PI * (3 / 2), 0, 0);
 		sublago2.position.set(0, diffToMerge, -0.5);
 		this.scene.add(sublago2);
