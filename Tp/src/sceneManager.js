@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { loadModels } from './loader.js';
-import { construirAgua, construirTerreno } from './mapa.js';
+import { construirTerreno } from './mapa.js';
 
 const ADD_HELPERS = false;
 
@@ -15,7 +15,20 @@ export class SceneManager {
 	camaraPasajero;
 	camaraConductor;
 
-	textureMap;
+	textures = {
+		tierra1: { url: 'tierra1.jpg', object: null },
+		tierra2: { url: 'tierra2.jpg', object: null },
+		pasto1: { url: 'pasto1.jpg', object: null },
+		pasto2: { url: 'pasto2.jpg', object: null },
+		pasto3: { url: 'pasto3.jpg', object: null },
+		pasto4: { url: 'pasto4.jpg', object: null },
+		arena: { url: 'arena.jpg', object: null },
+		tierraCostaSeca: { url: 'tierraCostaSeca.jpg', object: null },
+		tierraCostaMojada: { url: 'tierraCostaMojada.jpg', object: null },
+		agua1: { url: 'agua1.jpg', object: null },
+		agua2: { url: 'agua2.jpg', object: null },
+		elevationMap: { url: 'elevationMap1.png', object: null },
+	};
 
 	objetos = {};
 
@@ -43,17 +56,10 @@ export class SceneManager {
 
 	prepareScene() {
 		console.log('texture laoadead');
-		const mapa = construirTerreno(20, 20, this.textureMap);
+		const mapa = construirTerreno(50, 50, this.textures);
 		this.scene.add(mapa);
 
-		const agua = construirAgua(20, 20);
-		this.scene.add(agua);
-
 		this.objetos['mapa'] = mapa;
-		this.objetos['agua'] = agua;
-		/* loadModels(modelPaths, (models) => {
-			this.ready = true;
-		}); */
 
 		this.ready = true;
 	}
@@ -91,7 +97,6 @@ export class SceneManager {
 	animate(params) {
 		if (!this.ready) return;
 
-		this.objetos['agua'].position.y = params.alturaAgua;
 		/*
 		 params contiene:
 			posicionSobreRecorrido
@@ -126,18 +131,25 @@ export class SceneManager {
 	}
 
 	loadTextures() {
-		this.textureMap = new THREE.TextureLoader().load(
-			'../maps/elevationMap.png',
-			() => this.prepareScene(),
-			function (xhr) {
-				// The texture is being loaded
-				console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
-			},
-			function (error) {
-				// The texture was not loaded
-				console.log('An error happened');
-				console.log(error);
-			}
-		);
+		const loadingManager = new THREE.LoadingManager();
+
+		loadingManager.onLoad = () => {
+			console.log('All textures loaded');
+			this.prepareScene();
+		};
+
+		for (const key in this.textures) {
+			const loader = new THREE.TextureLoader(loadingManager);
+			const texture = this.textures[key];
+			texture.object = loader.load('maps/' + texture.url, this.onTextureLoaded.bind(this, key), null, (error) => {
+				console.error('Error loading texture', key);
+				console.error(error);
+			});
+		}
+	}
+	onTextureLoaded(key, texture) {
+		texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+		this.textures[key].object = texture;
+		console.log(`Texture ${key} loaded`);
 	}
 }

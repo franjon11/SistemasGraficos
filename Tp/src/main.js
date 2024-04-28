@@ -39,13 +39,6 @@ function setupThreeJs() {
 
 	// TODO => EVENTOS DE TECLADO
 	window.addEventListener('keydown', (event) => {
-		// evento de teclado de felcha para arriba y abajo que setee en params la altura del agua
-		if (event.key === 'ArrowUp' && params.alturaAgua < MAX_ALTURA_AGUA) {
-			params.alturaAgua += 0.1;
-		}
-		if (event.key === 'ArrowDown' && params.alturaAgua > MIN_ALTURA_AGUA) {
-			params.alturaAgua -= 0.1;
-		}
 		/* if (event.key === 'c') {
 			switch (params.camaraActual) {
 				case 'general':
