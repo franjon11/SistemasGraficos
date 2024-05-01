@@ -47,7 +47,7 @@ export function ElevationGeometry(width, height, amplitude, widthSegments, heigh
 			let yNext = undefined;
 
 			// Obtenemos el valor del pixel en la posicion i, j
-			let z0 = data[(i + j * widthSegments) * 4] / 255;
+			let z0 = (data[(i + j * widthSegments) * 4] - 128) / 255;
 
 			// Obtenemos los valores de los píxeles adyacentes
 			xPrev = i > 0 ? data[(i - 1 + j * widthSegments) * 4] / 255 : undefined;

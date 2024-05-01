@@ -138,36 +138,39 @@ const fragmentShader = `
 		vec3 agua1=texture2D(agua1Sampler,uv).xyz;
 		vec3 agua2=texture2D(agua2Sampler,uv).xyz;
 
+		float y = vWorldPos.y;
+
         // La tierra seca en zonas altas
-        float erosionFactor=smoothstep(2.6,3,vWorldPos.y);
+        float erosionFactor=smoothstep(0.4,3.0,y);
 
 		// Factor de Costa
-        float arenaTierraFactor=smoothstep(0,0.4,vWorldPos.y);
-        float arenaFactor=smoothstep(-0.4,0,vWorldPos.y);
+        float arenaTierraFactor=smoothstep(-0.2,0.0,y);
+        float arenaFactor=smoothstep(-0.5,-0.2,y);
 
 		// El agua en zonas bajas
-        float aguaFactor=smoothstep(-3,0,vWorldPos.y);
+        float aguaFactor=smoothstep(-3.0,-0.5,y);
 
         // mezcla de tierras
-        vec3 tierras=mix(tierra1,tierra2,erosionFactor);
+        vec3 tierras=mix(tierra1,tierra2,0.8);
 
         // mezcla de pastos
-        vec3 pastos1=mix(pasto1,pasto4,0.4);
-        vec3 pastos2=mix(pasto2,pasto3,0.2);
+        vec3 pastos1=mix(pasto1,pasto4,0.5);
+        vec3 pastos2=mix(pasto2,pasto3,0.5);
 		vec3 pastos=mix(pastos1,pastos2,0.5);
 
 		// mezcla costa
-		vec3 costa2=mix(tierraCostaSeca,tierraCostaMojada,arenaTierraFactor);
-		vec3 arenaTierras=mix(arena,costa2,arenaFactor);
+		vec3 costa2=mix(tierraCostaSeca,tierraCostaMojada,0.4);
+		vec3 arenaTierras=mix(arena,costa2,0.8);
 
 		// agua
-		vec3 agua=mix(agua1,agua2,aguaFactor);
+		vec3 agua=mix(agua1,agua2,0.8);
         
         // mezclar elementos
-		vec3 grassDirt=mix(pastos,tierras,0.5);
-		vec3 grassDirtRock=mix(grassDirt,arenaTierras,0.5);
-		vec3 grassDirtRockWater=mix(grassDirtRock,agua,0.5);
+		vec3 grassDirt=mix(pastos, tierras,erosionFactor);
+		vec3 grassDirtRock=mix(arenaTierras,grassDirt,arenaFactor);
+		vec3 grassDirtRockWater=mix(agua,grassDirtRock,aguaFactor);
 
         gl_FragColor = vec4(grassDirtRockWater,1.0);	
+        //gl_FragColor = vec4(vWorldPos.y,0.0,0.0,1.0);	
     }
     `;
