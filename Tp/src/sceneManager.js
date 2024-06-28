@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { loadModels } from './loader.js';
 import { construirTerreno } from './mapa.js';
+import { construirLocomotora, largo_barra, radio_rueda } from './locomotora.js';
+import { Path } from './path.js';
+import { materials } from './material.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
 const ADD_HELPERS = false;
 
@@ -8,126 +12,185 @@ const modelPaths = [];
 
 export class SceneManager {
 	scene;
+	container;
 
 	path;
-	locomotora;
 
-	camaraPasajero;
-	camaraConductor;
+	camaraLocomotoraDel;
+	camaraLocomotoraTras;
+	//camaraPuente;
+	camaraTunel;
 
 	textures = {
 		tierra1: { url: 'tierra1.jpg', object: null },
 		tierra2: { url: 'tierra2.jpg', object: null },
 		pasto1: { url: 'pasto1.jpg', object: null },
 		pasto2: { url: 'pasto2.jpg', object: null },
-		pasto3: { url: 'pasto3.jpg', object: null },
-		pasto4: { url: 'pasto4.jpg', object: null },
 		arena: { url: 'arena.jpg', object: null },
-		tierraCostaSeca: { url: 'tierraCostaSeca.jpg', object: null },
 		tierraCostaMojada: { url: 'tierraCostaMojada.jpg', object: null },
 		agua1: { url: 'agua1.jpg', object: null },
 		agua2: { url: 'agua2.jpg', object: null },
-		elevationMap: { url: 'elevationMap1.png', object: null },
+		elevationMap: { url: 'elevationMap222.png', object: null },
+		sky: { url: 'sky.jpg', object: null },
+		durmientes: { url: 'durmientes.jpg', object: null },
+		durmientesBump: { url: 'durmientesBump.jpg', object: null },
+		paredLadrillo: { url: 'pared_ladrillo.jpg', object: null },
+		paredLadrilloNormal: { url: 'pared_ladrillo_normal.jpg', object: null },
+		paredMadera: { url: 'pared_madera.jpg', object: null },
+		paredMaderaNormal: { url: 'pared_madera_normal.jpg', object: null },
 	};
 
 	objetos = {};
 
 	ready = false;
 
-	constructor(scene) {
+	directionalLight;
+	hemiLight;
+
+	lights = [];
+
+	skyDay = new THREE.Color(0xccccff);
+	skyNight = new THREE.Color(0x222299);
+	isDaytime = true;
+
+	constructor(scene, renderer) {
 		this.scene = scene;
-		const light = new THREE.DirectionalLight(0xffffff, 2);
 
-		light.position.set(1, 1, 1);
-		scene.add(light);
+		if (this.container) {
+			this.scene.remove(this.container);
+		}
+		this.container = new THREE.Group();
 
-		const hemiLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
-		scene.add(hemiLight);
+		this.directionalLight = new THREE.DirectionalLight(0xeeeeff, 0.2);
+		this.directionalLight.position.set(-1, 2, 3);
 
-		const grid = new THREE.GridHelper(20, 20);
-		scene.add(grid);
+		this.container.add(this.directionalLight);
+
+		this.hemiLight = new THREE.HemisphereLight(0x8888dd, 0x080866, 0.2);
+		this.container.add(this.hemiLight);
+
+		/* 	const grid = new THREE.GridHelper(70, 70);
+		this.container.add(grid);
 
 		const axes = new THREE.AxesHelper(100);
-		scene.add(axes);
+		this.container.add(axes); */
 
-		//this.buildPath();
+		this.updateDayNight(renderer, false);
 		this.loadTextures();
 	}
 
 	prepareScene() {
-		console.log('texture laoadead');
-		const mapa = construirTerreno(50, 50, this.textures);
-		this.scene.add(mapa);
+		// cielo
+		const skyTexture = this.textures.sky.object;
+		const skyMaterial = new THREE.MeshBasicMaterial({
+			map: skyTexture,
+			side: THREE.BackSide,
+		});
+		const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 32), skyMaterial);
+
+		sky.visible = false;
+		this.container.add(sky);
+
+		// mapa
+		const mapa = construirTerreno(70, 70, this.textures);
+		this.container.add(mapa);
 
 		this.objetos['mapa'] = mapa;
 
+		// construir el camino
+		this.buildPath();
+
+		// construir la locomotora
+		const { locomotora, ruedas, barras, parabrisas, luzLocomotora } = construirLocomotora(this.isDaytime);
+		this.lights.push(luzLocomotora);
+
+		this.container.add(locomotora);
+
+		this.objetos['locomotora'] = locomotora;
+		this.objetos['parabrisas'] = parabrisas;
+		this.objetos['ruedas'] = ruedas;
+		this.objetos['barras'] = barras;
+
 		this.ready = true;
+
+		this.generarCamaras();
+
+		this.scene.add(this.container);
+
+		this.generarSombras();
 	}
 
 	buildPath() {
-		this.path = new THREE.CatmullRomCurve3([
-			new THREE.Vector3(100, 0, 0),
-			new THREE.Vector3(700, 0, 0),
-			new THREE.Vector3(600, 0, 600),
-			new THREE.Vector3(0, 0, 700),
-			new THREE.Vector3(-600, 0, 600),
-			new THREE.Vector3(-700, 0, 0),
-			new THREE.Vector3(-600, 0, -600),
-			new THREE.Vector3(0, 0, -700),
-			new THREE.Vector3(600, 0, -600),
-			new THREE.Vector3(700, 0, 0),
-			new THREE.Vector3(100, 0, 0),
-		]);
+		this.path = new Path();
 
-		const points = this.path.getPoints(100);
-		const geometry = new THREE.BufferGeometry().setFromPoints(points);
-		const material = new THREE.LineBasicMaterial({ color: 0x990000 });
-		const line = new THREE.Line(geometry, material);
-
+		/* const { line, points } = this.path.getLineGeometry();
 		this.scene.add(line);
+		this.scene.add(points); */
+
+		const durmientes = this.path.crearDurmientes(
+			this.textures.durmientes.object,
+			this.textures.durmientesBump.object
+		);
+		this.container.add(durmientes);
+
+		const { viaIzq, viaDer } = this.path.crearVias();
+		this.container.add(viaIzq);
+		this.container.add(viaDer);
+
+		const puente = this.path.crearPuente(
+			this.textures.paredLadrillo.object,
+			this.textures.paredLadrilloNormal.object
+		);
+		this.container.add(puente);
+
+		const tunel = this.path.crearTunel(this.textures.paredMadera.object, this.textures.paredMaderaNormal.object);
+		this.container.add(tunel);
+
+		this.objetos['tunel'] = tunel;
+		this.objetos['puente'] = puente;
 	}
 
 	onResize(aspect) {
-		this.camaraPasajero.aspect = aspect;
-		this.camaraPasajero.updateProjectionMatrix();
-		this.camaraConductor.aspect = aspect;
-		this.camaraConductor.updateProjectionMatrix();
+		this.camaraLocomotoraDel.aspect = aspect;
+		this.camaraLocomotoraDel.updateProjectionMatrix();
+
+		this.camaraLocomotoraTras.aspect = aspect;
+		this.camaraLocomotoraTras.updateProjectionMatrix();
+
+		this.camaraTunel.aspect = aspect;
+		this.camaraTunel.updateProjectionMatrix();
 	}
 
 	animate(params) {
 		if (!this.ready) return;
 
-		/*
-		 params contiene:
-			posicionSobreRecorrido
-			anguloCabina
-			anguloBrazo
-			anguloAntebrazo
-			anguloPala
-		
-		*/
-
-		// TODO => actualizar angulos
-
-		// TODO => ubicar vehiculo en el recorrido
-		//this._ubicarVehiculo(params.posicionSobreRecorrido);
+		if (!params.stop) {
+			this._ubicarVehiculo(params.position);
+		}
 	}
 
 	_ubicarVehiculo(u) {
-		let pos = this.path.getPointAt(Math.min(0.98, u));
-		pos.y += 10;
-		this.locomotora.position.set(pos.x, pos.y, pos.z);
-		let target = this.path.getPointAt((u + 0.01) % 1);
-		target.y += 10;
-		let tangente = new THREE.Vector3();
-		tangente.subVectors(target, pos).normalize();
-		let yAxis = new THREE.Vector3(0, 1, 0);
+		const locomotora = this.objetos.locomotora;
 
-		let normal = new THREE.Vector3();
-		normal.crossVectors(yAxis, tangente).normalize();
-		let target2 = new THREE.Vector3();
-		target2.addVectors(pos, normal);
-		this.locomotora.lookAt(target2);
+		const { position, lookAt } = this.path.getPositionLocomotora(u);
+		locomotora.position.set(position.x, position.y, position.z);
+		locomotora.lookAt(lookAt);
+
+		const ruedas = this.objetos.ruedas;
+		const barras = this.objetos.barras;
+
+		const angle = u * 100;
+		ruedas.forEach((gRueda) => {
+			gRueda.rotation.z = angle;
+		});
+
+		barras.forEach((barra) => {
+			barra.position.set(
+				Math.cos(angle * 2) * (radio_rueda / 2) + largo_barra / 2,
+				(Math.sin(angle * 2) * radio_rueda) / 2,
+				barra.position.z
+			);
+		});
 	}
 
 	loadTextures() {
@@ -147,9 +210,61 @@ export class SceneManager {
 			});
 		}
 	}
+
 	onTextureLoaded(key, texture) {
 		texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 		this.textures[key].object = texture;
 		console.log(`Texture ${key} loaded`);
+	}
+
+	generarCamaras() {
+		const parabrisas = this.objetos.parabrisas;
+		const tunel = this.objetos.tunel;
+
+		this.camaraLocomotoraDel = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+		this.camaraLocomotoraDel.position.set(0.5, 1, -0.5);
+		this.camaraLocomotoraDel.lookAt(0, 0, 10);
+		parabrisas.add(this.camaraLocomotoraDel);
+
+		this.camaraLocomotoraTras = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+		this.camaraLocomotoraTras.position.set(0.5, 1, -0.5);
+		this.camaraLocomotoraTras.lookAt(0, 0, -10);
+		parabrisas.add(this.camaraLocomotoraTras);
+
+		this.camaraTunel = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+		this.camaraTunel.position.set(-20, 3, -8);
+		this.camaraTunel.lookAt(0, 0, -9);
+
+		tunel.add(this.camaraTunel);
+	}
+
+	updateDayNight(renderer, changeDayTime = true) {
+		if (changeDayTime) this.isDaytime = !this.isDaytime;
+		const dayNight = this.isDaytime ? 0 : 1;
+
+		let sky = this.skyDay.clone();
+		sky.lerp(this.skyNight, dayNight);
+
+		renderer.setClearColor(sky.getHex());
+		materials.foco.emissive = new THREE.Color().setHSL(0.5, 0, dayNight);
+
+		this.lights.forEach((light, i) => {
+			light.intensity = dayNight * 100;
+		});
+		this.directionalLight.intensity = 1.5 - dayNight;
+		this.hemiLight.intensity = 0.1 + (1 - dayNight) * 0.1;
+	}
+
+	generarSombras() {
+		this.scene.traverse((obj) => {
+			if (obj.isMesh) {
+				obj.receiveShadow = true;
+				obj.castShadow = true;
+			}
+
+			if (obj.material) {
+				obj.material.needsUpdate = true;
+			}
+		});
 	}
 }

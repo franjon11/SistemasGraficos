@@ -1,25 +1,21 @@
 import * as THREE from 'three';
 
 import { ElevationGeometry } from '../geometrias/elevationGeometry.js';
+import { materials } from './material.js';
 
 export function construirTerreno(width, height, textures) {
-	const {
-		tierra1,
-		tierra2,
-		pasto1,
-		pasto2,
-		pasto3,
-		pasto4,
-		arena,
-		tierraCostaSeca,
-		tierraCostaMojada,
-		agua1,
-		agua2,
-		elevationMap,
-	} = textures;
+	const a = new THREE.Mesh(
+		new THREE.PlaneGeometry(width, height, 350, 350),
+		new THREE.MeshPhongMaterial({ color: materials.pasto.color, side: THREE.DoubleSide })
+	);
+	a.rotation.set(Math.PI / 2, 0, 0);
+	return a;
+
+	const { tierra1, tierra2, pasto1, pasto2, arena, tierraCostaSeca, tierraCostaMojada, agua1, agua2, elevationMap } =
+		textures;
 
 	// PASTO
-	const amplitude = 8;
+	const amplitude = 13;
 	const widthSegments = 350;
 	const heightSegments = 350;
 	const geoTerreno = ElevationGeometry(width, height, amplitude, widthSegments, heightSegments, elevationMap.object);
@@ -30,10 +26,7 @@ export function construirTerreno(width, height, textures) {
 			tierra2Sampler: { type: 't', value: tierra2.object },
 			pasto1Sampler: { type: 't', value: pasto1.object },
 			pasto2Sampler: { type: 't', value: pasto2.object },
-			pasto3Sampler: { type: 't', value: pasto3.object },
-			pasto4Sampler: { type: 't', value: pasto4.object },
 			arenaSampler: { type: 't', value: arena.object },
-			tierraCostaSecaSampler: { type: 't', value: tierraCostaSeca.object },
 			tierraCostaMojadaSampler: { type: 't', value: tierraCostaMojada.object },
 			agua1Sampler: { type: 't', value: agua1.object },
 			agua2Sampler: { type: 't', value: agua2.object },
@@ -112,10 +105,7 @@ const fragmentShader = `
 	uniform sampler2D tierra2Sampler;
 	uniform sampler2D pasto1Sampler;
 	uniform sampler2D pasto2Sampler;
-	uniform sampler2D pasto3Sampler;
-	uniform sampler2D pasto4Sampler;
 	uniform sampler2D arenaSampler;
-	uniform sampler2D tierraCostaSecaSampler;
 	uniform sampler2D tierraCostaMojadaSampler;
 	uniform sampler2D agua1Sampler;
 	uniform sampler2D agua2Sampler;
@@ -128,12 +118,9 @@ const fragmentShader = `
 
 		vec3 pasto1=texture2D(pasto1Sampler,uv).xyz;
 		vec3 pasto2=texture2D(pasto2Sampler,uv).xyz;
-		vec3 pasto3=texture2D(pasto3Sampler,uv).xyz;
-		vec3 pasto4=texture2D(pasto4Sampler,uv).xyz;
 
 		vec3 arena=texture2D(arenaSampler,uv).xyz;
-		vec3 tierraCostaSeca=texture2D(tierraCostaSecaSampler,uv).xyz;
-		vec3 tierraCostaMojada=texture2D(tierraCostaMojadaSampler,uv).xyz;
+		vec3 piedritas=texture2D(tierraCostaMojadaSampler,uv*3.5).xyz;
 
 		vec3 agua1=texture2D(agua1Sampler,uv).xyz;
 		vec3 agua2=texture2D(agua2Sampler,uv).xyz;
@@ -141,34 +128,29 @@ const fragmentShader = `
 		float y = vWorldPos.y;
 
         // La tierra seca en zonas altas
-        float erosionFactor=smoothstep(0.4,3.0,y);
+        float erosionFactor=smoothstep(0.3,3.0,y);
 
 		// Factor de Costa
-        float arenaTierraFactor=smoothstep(-0.2,0.0,y);
-        float arenaFactor=smoothstep(-0.5,-0.2,y);
+        float costa1Factor=smoothstep(-0.3,0.1,y);
+        float costa2Factor=smoothstep(-1.0,-0.1,y);
 
 		// El agua en zonas bajas
-        float aguaFactor=smoothstep(-3.0,-0.5,y);
+        float aguaFactor=smoothstep(-1.5,-0.7,y);
 
         // mezcla de tierras
-        vec3 tierras=mix(tierra1,tierra2,0.8);
+        vec3 tierras=mix(tierra1,tierra2,0.2);
 
         // mezcla de pastos
-        vec3 pastos1=mix(pasto1,pasto4,0.5);
-        vec3 pastos2=mix(pasto2,pasto3,0.5);
-		vec3 pastos=mix(pastos1,pastos2,0.5);
-
-		// mezcla costa
-		vec3 costa2=mix(tierraCostaSeca,tierraCostaMojada,0.4);
-		vec3 arenaTierras=mix(arena,costa2,0.8);
+        vec3 pastos=mix(pasto1,pasto2,0.45);
 
 		// agua
-		vec3 agua=mix(agua1,agua2,0.8);
+		vec3 agua=mix(agua1,agua2,0.90);
         
         // mezclar elementos
-		vec3 grassDirt=mix(pastos, tierras,erosionFactor);
-		vec3 grassDirtRock=mix(arenaTierras,grassDirt,arenaFactor);
-		vec3 grassDirtRockWater=mix(agua,grassDirtRock,aguaFactor);
+		vec3 grassDirt=mix(pastos,tierras,erosionFactor);
+		vec3 grassArenaRock=mix(arena,grassDirt,costa1Factor);
+		vec3 grassArenaPiedraRock=mix(piedritas,grassArenaRock,costa2Factor);
+		vec3 grassDirtRockWater=mix(agua,grassArenaPiedraRock,aguaFactor);
 
         gl_FragColor = vec4(grassDirtRockWater,1.0);	
         //gl_FragColor = vec4(vWorldPos.y,0.0,0.0,1.0);	
